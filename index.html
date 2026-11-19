@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🩺 MONITOR Y KHOA 19/11 - LÊ CAO TẤN LỘC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;900&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      background: #030d12;
+      color: #fff;
+      font-family: 'Be Vietnam Pro', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ================= TẦNG 1: MÁY ĐO ĐIỆN TÂM ĐỒ (ECG MONITOR) ================= */
+    #ecg-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: #020c10;
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .monitor-frame {
+      width: 100%;
+      max-width: 720px;
+      background: #04151c;
+      border: 2px solid #00f5d4;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 0 35px rgba(0, 245, 212, 0.25);
+    }
+
+    .monitor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(0, 245, 212, 0.3);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      color: #00f5d4;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ecg-display {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    #ecg-canvas {
+      flex: 1;
+      height: 150px;
+      background: rgba(0, 20, 25, 0.8);
+      border-radius: 10px;
+      border: 1px solid rgba(0, 245, 212, 0.2);
+    }
+
+    .bpm-box {
+      min-width: 120px;
+      text-align: right;
+    }
+
+    .bpm-label {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    #bpm-value {
+      font-size: 3.2rem;
+      font-weight: 800;
+      color: #00ff88;
+      line-height: 1.1;
+      text-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+    }
+
+    #med-status {
+      font-size: 0.95rem;
+      color: #00f5d4;
+      min-height: 24px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    #revive-btn {
+      display: none;
+      padding: 15px 30px;
+      border-radius: 50px;
+      border: 2px solid #fff;
+      background: linear-gradient(135deg, #ff0055, #00f5d4);
+      color: #fff;
+      font-family: 'Be Vietnam Pro', sans-serif;
+      font-weight: 900;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(255, 0, 85, 0.8);
+      animation: pulseAlert 0.5s infinite alternate;
+    }
+
+    .critical-flash {
+      animation: redFlash 0.3s infinite alternate;
+    }
+
+    /* ================= TẦNG 2: SÂN KHẤU Ú ÒA Y KHOA ================= */
+    #flash-mint {
+      position: fixed;
+      inset: 0;
+      background: #ccfbf1;
+      z-index: 1010;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.7s ease;
+    }
+
+    #med-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    #surprise-stage {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      background: radial-gradient(circle at center, rgba(6, 55, 65, 0.82) 0%, rgba(3, 13, 18, 0.96) 100%);
+      overflow-y: auto;
+    }
+
+    .uo-tag {
+      font-size: clamp(2.4rem, 6.5vw, 4.2rem);
+      font-weight: 900;
+      background: linear-gradient(45deg, #00f5d4, #00ff88, #ff75b5, #fee440);
+      background-size: 300% 300%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: popIn 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275), gradientFlow 3s ease infinite;
+      margin-bottom: 4px;
+      filter: drop-shadow(0 0 22px rgba(0, 245, 212, 0.5));
+    }
+
+    .main-wish {
+      font-size: clamp(1.2rem, 3.2vw, 2rem);
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 16px;
+      letter-spacing: 0.8px;
+    }
+
+    /* Khung Đơn Thuốc & Điều Chế */
+    .rx-card {
+      background: rgba(255, 255, 255, 0.07);
+      border: 2px solid rgba(0, 245, 212, 0.55);
+      backdrop-filter: blur(15px);
+      border-radius: 26px;
+      padding: 24px 26px;
+      max-width: 630px;
+      width: 100%;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 35px rgba(0, 255, 136, 0.2);
+    }
+
+    .syringe-icon {
+      font-size: 4.8rem;
+      cursor: pointer;
+      display: inline-block;
+      transition: transform 0.1s;
+      filter: drop-shadow(0 0 22px rgba(0, 245, 212, 0.8));
+    }
+
+    .syringe-icon:active {
+      transform: scale(0.85) rotate(-15deg);
+    }
+
+    .dose-bar-bg {
+      width: 85%;
+      margin: 14px auto 10px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #dose-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #00f5d4, #00ff88, #fee440);
+      transition: width 0.15s ease;
+    }
+
+    #dose-hint {
+      font-size: 0.95rem;
+      color: #00ff88;
+      font-weight: 700;
+    }
+
+    /* Đơn thuốc lời chúc */
+    #prescription-box {
+      display: none;
+      animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .rx-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed rgba(0, 245, 212, 0.4);
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+      color: #00f5d4;
+      font-weight: 800;
+    }
+
+    .rx-symbol {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.5rem;
+      color: #00ff88;
+    }
+
+    .wish-body {
+      background: rgba(0, 245, 212, 0.08);
+      border: 1.5px solid rgba(0, 255, 136, 0.45);
+      padding: 20px 18px;
+      border-radius: 18px;
+      font-size: clamp(0.96rem, 2.3vw, 1.1rem);
+      line-height: 1.78;
+      color: #f8fafc;
+      margin-bottom: 18px;
+      text-align: center;
+      box-shadow: inset 0 0 25px rgba(0, 245, 212, 0.1);
+    }
+
+    #doctor-cert {
+      display: none;
+      background: linear-gradient(135deg, rgba(0, 245, 212, 0.18), rgba(254, 228, 64, 0.18));
+      border: 1.5px solid #00ff88;
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 16px;
+      font-size: 0.94rem;
+      line-height: 1.65;
+      animation: popIn 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      min-height: 48px;
+    }
+
+    .btn-med {
+      padding: 12px 22px;
+      border-radius: 50px;
+      border: none;
+      background: linear-gradient(90deg, #00f5d4, #00ff88);
+      color: #030d12;
+      font-weight: 900;
+      font-size: 0.9rem;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 245, 212, 0.45);
+      transition: transform 0.2s;
+    }
+
+    .btn-pill {
+      padding: 12px 22px;
+      border-radius: 50px;
+      border: 1.5px solid #ff75b5;
+      background: rgba(255, 117, 181, 0.2);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .btn-med:hover {
+      transform: scale(1.05);
+    }
+
+    #pill-note {
+      font-size: 0.84rem;
+      color: #fee440;
+      margin-top: 10px;
+      font-weight: 700;
+      min-height: 20px;
+    }
+
+    .falling-med {
+      position: fixed;
+      top: -40px;
+      font-size: 1.8rem;
+      z-index: 20;
+      pointer-events: none;
+      animation: fallDown linear forwards;
+    }
+
+    @keyframes fallDown {
+      to { transform: translateY(110vh) rotate(360deg); }
+    }
+    @keyframes pulseAlert {
+      from { transform: scale(1); }
+      to { transform: scale(1.07); }
+    }
+    @keyframes redFlash {
+      from { border-color: #ff0055; box-shadow: 0 0 25px rgba(255, 0, 85, 0.5); }
+      to { border-color: #fff; box-shadow: 0 0 50px rgba(255, 0, 85, 0.95); }
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.2); opacity: 0; }
+      80% { transform: scale(1.06); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    @keyframes gradientFlow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="flash-mint"></div>
+
+  <!-- TẦNG 1: MÁY ĐO ĐIỆN TÂM ĐỒ Y KHOA -->
+  <div id="ecg-screen">
+    <div class="monitor-frame" id="monitor-frame">
+      <div class="monitor-header">
+        <span>🏥 MED-SCANNER v19.11</span>
+        <span>BỆNH NHÂN: <b>LÊ CAO TẤN LỘC</b></span>
+        <span>TRẠNG THÁI: <b id="ecg-tag">ĐANG ĐO</b></span>
+      </div>
+
+      <div class="ecg-display">
+        <canvas id="ecg-canvas"></canvas>
+        <div class="bpm-box">
+          <div class="bpm-label">NHỊP TIM (BPM)</div>
+          <div id="bpm-value">82</div>
+        </div>
+      </div>
+
+      <div id="med-status">Đang kiểm tra chỉ số sức khỏe & độ đẹp trai...</div>
+      <button id="revive-btn" onclick="triggerMedSurprise()">⚡ KÍCH HOẠT SỐC TIM HỒI SINH NGAY!</button>
+    </div>
+  </div>
+
+  <!-- TẦNG 2: SÂN KHẤU Ú ÒA Y KHOA -->
+  <canvas id="med-canvas"></canvas>
+  <div id="surprise-stage">
+    <div class="uo-tag">🩺 Ú ÒA!! 🎉</div>
+    <div class="main-wish">HAPPY MEN'S DAY 19/11<br>LÊ CAO TẤN LỘC!</div>
+
+    <div class="rx-card">
+      <!-- Bước 1: Điều chế liều thuốc hạnh phúc -->
+      <div id="mix-game">
+        <div class="syringe-icon" id="syringe-icon" onclick="mixMedicine()">💉</div>
+        <div class="dose-bar-bg">
+          <div id="dose-fill"></div>
+        </div>
+        <div id="dose-hint">Bấm liên tục vào ống tiêm để điều chế "Đơn Thuốc 19/11"! (0%)</div>
+      </div>
+
+      <!-- Bước 2: Đơn thuốc lời chúc -->
+      <div id="prescription-box">
+        <div class="rx-header">
+          <span class="rx-symbol">℞</span>
+          <span>ĐƠN THUỐC ĐẶC TRỊ NGÀY 19/11</span>
+          <span>SL: VÔ HẠN</span>
+        </div>
+
+        <div class="wish-body" id="wish-text"></div>
+
+        <div id="doctor-cert">
+          <div style="color: #00ff88; font-weight: 900; font-size: 1rem; margin-bottom: 6px;">
+            🩺 CHỨNG NHẬN BÁC SĨ TƯƠNG LAI 19/11 🩺
+          </div>
+          Cấp cho <b>Lê Cao Tấn Lộc</b> — Chàng trai hội tụ đủ:<br>
+          <span style="color: #fee440; font-weight: 800;">"Trí Tuệ Y Khoa • Nụ Cười Tỏa Nắng • Đỉnh Cao Phong Độ"</span><br>
+          Chúc ông học thật giỏi, vững tay nghề và chạm tới mọi ước mơ nhé! 🥰🎉
+        </div>
+
+        <div class="btn-group">
+          <button class="btn-med" onclick="launchMedFireworks()">🎆 Bắn Pháo Hoa</button>
+          <button class="btn-pill" id="pill-btn" onclick="handlePillDodge()">💊 Nhận Quà Y Khoa Cuối</button>
+        </div>
+        <div id="pill-note"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ================= 1. VẼ SÓNG ĐIỆN TÂM ĐỒ (ECG) ================= */
+    const ecgCanvas = document.getElementById('ecg-canvas');
+    const ecgCtx = ecgCanvas.getContext('2d');
+    ecgCanvas.width = 480;
+    ecgCanvas.height = 150;
+
+    let xPos = 0;
+    let lastY = 75;
+    let mode = 'normal'; // 'normal' -> 'fast' -> 'flat'
+
+    function drawECG() {
+      ecgCtx.fillStyle = 'rgba(4, 21, 28, 0.08)';
+      ecgCtx.fillRect(0, 0, ecgCanvas.width, ecgCanvas.height);
+
+      ecgCtx.strokeStyle = mode === 'flat' ? '#ff0055' : '#00ff88';
+      ecgCtx.lineWidth = 2.5;
+      ecgCtx.beginPath();
+      ecgCtx.moveTo(xPos, lastY);
+
+      let nextX = xPos + (mode === 'fast' ? 6 : 3.5);
+      let nextY = 75;
+
+      if (mode === 'normal') {
+        const cycle = Math.floor(nextX) % 90;
+        if (cycle > 35 && cycle < 42) nextY = 20;
+        else if (cycle >= 42 && cycle < 48) nextY = 125;
+        else if (cycle >= 48 && cycle < 55) nextY = 60;
+      } else if (mode === 'fast') {
+        const cycle = Math.floor(nextX) % 45;
+        if (cycle > 15 && cycle < 22) nextY = 12;
+        else if (cycle >= 22 && cycle < 28) nextY = 138;
+      } else {
+        nextY = 75; // Đường thẳng ngưng tim giả!
+      }
+
+      ecgCtx.lineTo(nextX, nextY);
+      ecgCtx.stroke();
+
+      xPos = nextX;
+      lastY = nextY;
+      if (xPos > ecgCanvas.width) {
+        xPos = 0;
+        ecgCtx.clearRect(0, 0, ecgCanvas.width, ecgCanvas.height);
+      }
+      requestAnimationFrame(drawECG);
+    }
+    drawECG();
+
+    // Kịch bản nhịp tim tăng vọt -> đứng tim giả -> Ú ÒA!
+    const bpmEl = document.getElementById('bpm-value');
+    const medStatus = document.getElementById('med-status');
+    const ecgTag = document.getElementById('ecg-tag');
+    const monitorFrame = document.getElementById('monitor-frame');
+    const reviveBtn = document.getElementById('revive-btn');
+
+    let step = 0;
+    const ecgTimer = setInterval(() => {
+      step++;
+      if (step <= 4) {
+        bpmEl.textContent = 80 + step * 8;
+        playMedBeep(880, 0.08);
+      } else if (step <= 8) {
+        mode = 'fast';
+        bpmEl.textContent = 160 + (step - 4) * 25;
+        bpmEl.style.color = '#fee440';
+        medStatus.textContent = "⚠️ CẢNH BÁO: NHỊP TIM TĂNG VỌT VÌ QUÁ ĐẸP TRAI & HỌC GIỎI!";
+        medStatus.style.color = '#fee440';
+        playMedBeep(1100, 0.07);
+      } else {
+        clearInterval(ecgTimer);
+        mode = 'flat';
+        bpmEl.textContent = "000";
+        bpmEl.style.color = '#ff0055';
+        ecgTag.textContent = "BÁO ĐỘNG ĐỎ!";
+        ecgTag.style.color = '#ff0055';
+        medStatus.textContent = "🚨 NGƯNG TIM DO QUÁ TẢI SỰ DỄ THƯƠNG NGÀY 19/11!!";
+        medStatus.style.color = '#ff0055';
+        monitorFrame.classList.add('critical-flash');
+        reviveBtn.style.display = 'inline-block';
+        playMedBeep(520, 0.9); // Tiếng tít kéo dài
+      }
+    }, 550);
+
+    /* ================= 2. BÙNG NỔ "Ú ÒA!" ================= */
+    let revived = false;
+    function triggerMedSurprise() {
+      if (revived) return;
+      revived = true;
+
+      const flash = document.getElementById('flash-mint');
+      flash.style.opacity = '1';
+
+      setTimeout(() => {
+        document.getElementById('ecg-screen').style.display = 'none';
+        document.getElementById('surprise-stage').style.display = 'flex';
+        flash.style.opacity = '0';
+        launchMedFireworks();
+        spawnMedRain();
+        playHappyChime();
+      }, 260);
+    }
+
+    /* ================= 3. ĐIỀU CHẾ THUỐC & GÕ LỜI CHÚC ================= */
+    const fullWish = "💗 Chúc Lê Cao Tấn Lộc ngày 19/11 thật vui vẻ và ý nghĩa nhaaa! Chúc Lộc luôn mạnh khỏe, học giỏi, gặp nhiều may mắn và ngày càng thành công. Mong Lộc lúc nào cũng vui vẻ, tự tin, luôn gặp được những điều tốt đẹp và thực hiện được mọi ước mơ của mình. Chúc ông có một ngày thật nhiều niềm vui, nhận được nhiều quà và luôn cười thật tươi nhaaa! 🥰🎉";
+
+    let dose = 0;
+    function mixMedicine() {
+      if (dose >= 100) return;
+      dose += 20;
+      playMedBeep(500 + dose * 4, 0.08);
+
+      const syr = document.getElementById('syringe-icon');
+      syr.style.transform = `scale(1.25) rotate(${(Math.random() - 0.5) * 30}deg)`;
+      setTimeout(() => syr.style.transform = 'scale(1) rotate(0deg)', 110);
+
+      document.getElementById('dose-fill').style.width = Math.min(dose, 100) + '%';
+
+      if (dose < 100) {
+        document.getElementById('dose-hint').textContent = `Đang pha chế liều thuốc hạnh phúc... (${dose}%) 🩺`;
+      } else {
+        document.getElementById('mix-game').style.display = 'none';
+        document.getElementById('prescription-box').style.display = 'block';
+        typeWish();
+        launchMedFireworks();
+        spawnMedRain();
+        playHappyChime();
+      }
+    }
+
+    function typeWish() {
+      const wishEl = document.getElementById('wish-text');
+      const charsArr = Array.from(fullWish);
+      let idx = 0;
+      const timer = setInterval(() => {
+        if (idx < charsArr.length) {
+          wishEl.textContent += charsArr[idx];
+          idx++;
+        } else {
+          clearInterval(timer);
+        }
+      }, 22);
+    }
+
+    /* ================= 4. NÚT QUÀ Y KHOA NÉ CHUỘT ================= */
+    let pillStep = 0;
+    function handlePillDodge() {
+      const btn = document.getElementById('pill-btn');
+      const note = document.getElementById('pill-note');
+
+      if (pillStep === 0) {
+        btn.style.transform = 'translate(55px, -10px)';
+        note.textContent = "Viên thuốc lăn mất rồi! Bắt lại lẹ bác sĩ ơi 😜💊";
+        playMedBeep(700, 0.1);
+        pillStep++;
+      } else if (pillStep === 1) {
+        btn.style.transform = 'translate(-55px, 9px)';
+        note.textContent = "Suýt trúng! Thêm phát nữa là kê đơn xong nè 😂";
+        playMedBeep(850, 0.1);
+        pillStep++;
+      } else {
+        btn.style.transform = 'translate(0, 0)';
+        btn.style.display = 'none';
+        note.textContent = "🎉 Ú ÒA! CHÚC LÊ CAO TẤN LỘC 19/11 RỰC RỠ NHAAA! 🩺💗";
+        document.getElementById('doctor-cert').style.display = 'block';
+        launchMedFireworks();
+        spawnMedRain();
+        playHappyChime();
+      }
+    }
+
+    /* ================= 5. PHÁO HOA & MƯA ICON Y KHOA ================= */
+    const canvas = document.getElementById('med-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    let sparks = [];
+    const colors = ['#00f5d4', '#00ff88', '#ff75b5', '#fee440', '#38bdf8', '#ffffff'];
+
+    function spawnBurst(x, y) {
+      for (let i = 0; i < 80; i++) {
+        const angle = (Math.PI * 2 * i) / 80;
+        const speed = Math.random() * 6 + 2;
+        sparks.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          alpha: 1,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: Math.random() * 3.5 + 1.5
+        });
+      }
+    }
+
+    function launchMedFireworks() {
+      for (let i = 0; i < 8; i++) {
+        setTimeout(() => {
+          spawnBurst(
+            Math.random() * canvas.width * 0.8 + canvas.width * 0.1,
+            Math.random() * canvas.height * 0.5 + 60
+          );
+        }, i * 250);
+      }
+    }
+
+    function spawnMedRain() {
+      const icons = ['🩺', '💊', '💗', '🎉', '💉', '🥰', '✨'];
+      for (let i = 0; i < 25; i++) {
+        setTimeout(() => {
+          const el = document.createElement('div');
+          el.className = 'falling-med';
+          el.textContent = icons[Math.floor(Math.random() * icons.length)];
+          el.style.left = Math.random() * 95 + 'vw';
+          el.style.animationDuration = (Math.random() * 2 + 2.5) + 's';
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 4600);
+        }, i * 115);
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      sparks.forEach((s, i) => {
+        s.x += s.vx;
+        s.y += s.vy;
+        s.vy += 0.07;
+        s.alpha -= 0.014;
+        ctx.globalAlpha = Math.max(s.alpha, 0);
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+        if (s.alpha <= 0) sparks.splice(i, 1);
+      });
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    /* ================= 6. ÂM THANH MONITOR Y KHOA ================= */
+    let audioCtx;
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function playMedBeep(freq, duration) {
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playHappyChime() {
+      try {
+        initAudio();
+        const notes = [523.25, 659.25, 783.99, 1046.50, 880.00, 1046.50];
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.14, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+          }, idx * 135);
+        });
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>
